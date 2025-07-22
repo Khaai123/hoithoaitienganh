@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Luyện Nói Tiếng Anh Pro</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
+        .container { width: 100%; max-width: 600px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 25px; text-align: center; }
+        h1 { color: #0d6efd; margin-bottom: 20px; }
+        h2 { font-size: 1.2rem; color: #606770; margin-bottom: 5px; }
+        textarea { width: 95%; height: 120px; padding: 10px; border: 1px solid #dddfe2; border-radius: 6px; font-size: 0.9rem; margin-bottom: 10px; resize: vertical; }
+        .controls, .session-controls { margin: 10px 0; display: flex; justify-content: center; flex-wrap: wrap; gap: 10px; }
+        button { background-color: #0d6efd; color: white; border: none; padding: 12px 20px; border-radius: 6px; font-size: 1rem; cursor: pointer; transition: background-color 0.3s; }
+        button:hover { background-color: #0b5ed7; }
+        button#record-btn { background-color: #198754; }
+        button#record-btn:hover { background-color: #157347; }
+        button:disabled { background-color: #6c757d; cursor: not-allowed; }
+        .dialogue-box { margin-top: 20px; padding: 15px; background-color: #f7f7f7; border: 1px solid #e0e0e0; border-radius: 6px; text-align: left; }
+        .line { padding: 10px; margin: 8px 0; border-radius: 6px; font-size: 1.1rem; }
+        .computer-line { background-color: #e7f3ff; }
+        .user-line { background-color: #e8f5e9; font-weight: bold; border: 2px dashed #198754; }
+        .status { margin-top: 20px; font-size: 1.1rem; font-weight: bold; min-height: 30px; }
+        .status.success { color: #198754; }
+        .status.error { color: #dc3545; }
+        .instructions { font-size: 0.8rem; color: #606770; text-align: left; margin-bottom: 15px; background: #fdfde3; padding: 10px; border-radius: 5px; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Luyện Giao Tiếp Chuyên Nghiệp 🚀</h1>
+        
+        <div class="instructions">
+            <strong>Hướng dẫn:</strong>
+            <ol>
+                <li>Dán đoạn hội thoại vào ô (dùng "A:" và "B:").</li>
+                <li>Nhấn <strong>"Tải Hội Thoại"</strong>. Bạn có thể <strong>"Đổi Vai"</strong> nếu muốn.</li>
+                <li>Lắng nghe máy đọc. Sau đó, nhấn <strong>"Bắt Đầu Ghi Âm"</strong> và nói.</li>
+                <li>Cần gợi ý? Nhấn <strong>"Hiện/Ẩn Lời Thoại"</strong>.</li>
+            </ol>
+        </div>
+
+        <textarea id="dialogue-input" placeholder="Dán hội thoại của bạn ở đây..."></textarea>
+        
+        <div class="controls">
+            <button id="load-btn">Tải Hội Thoại</button>
+            <button id="swap-roles-btn">🔁 Đổi Vai (Hiện tại: Bạn là B)</button>
+        </div>
+
+        <div id="practice-area" class="dialogue-box" style="display: none;">
+            <h2>Lời thoại của máy:</h2>
+            <div id="computer-line" class="line computer-line">...</div>
+            <div id="user-line-container">
+                 <h2 id="user-line-title">Câu của bạn:</h2>
+                 <div id="user-line" class="line user-line" style="display: none;">...</div>
+            </div>
+        </div>
+        
+        <div id="status-area" class="status"></div>
+
+        <div class="session-controls">
+            <button id="record-btn" disabled>🎤 Bắt Đầu Ghi Âm</button>
+            <button id="toggle-line-btn" disabled>🙈 Hiện Lời Thoại</button>
+        </div>
+    </div>
+
+    <script>
+        // --- JavaScript Logic ---
+
+        // 1. Lấy các phần tử HTML
+        const dialogueInput = document.getElementById('dialogue-input');
+        const loadBtn = document.getElementById('load-btn');
+        const swapRolesBtn = document.getElementById('swap-roles-btn');
+        const toggleBtn = document.getElementById('toggle-line-btn');
+        const recordBtn = document.getElementById('record-btn');
+        const practiceArea = document.getElementById('practice-area');
+        const computerLine = document.getElementById('computer-line');
+        const userLine = document.getElementById('user-line');
+        const userLineTitle = document.getElementById('user-line-title');
+        const statusArea = document.getElementById('status-area');
+
+        // 2. Khởi tạo Web Speech API
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        const synthesis = window.speechSynthesis;
+        let recognition;
+        let voices = [];
+
+        if (SpeechRecognition && synthesis) {
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.lang = 'en-US';
+            recognition.interimResults = false;
+        } else {
+            statusArea.textContent = "Lỗi: Trình duyệt không hỗ trợ Web Speech API.";
+            [loadBtn, swapRolesBtn, toggleBtn, recordBtn].forEach(b => b.disabled = true);
+        }
+        
+        function loadVoices() {
+            voices = synthesis.getVoices();
+        }
+        loadVoices();
+        if (synthesis.onvoiceschanged !== undefined) {
+            synthesis.onvoiceschanged = loadVoices;
+        }
+
+        // 3. Biến trạng thái
+        let linesA = [];
+        let linesB = [];
+        let currentLineIndex = 0;
+        let userIsB = true; // Mặc định: User là B, Máy là A
+        let isUserLineVisible = false;
+
+        // 4. Các hàm chức năng
+        function speak(text, onEndCallback) {
+            if (synthesis.speaking) return;
+            const utterance = new SpeechSynthesisUtterance(text);
+            // Ưu tiên giọng Jenny, nếu không có sẽ dùng giọng Google hoặc giọng nữ Mỹ mặc định
+            utterance.voice = voices.find(voice => voice.name === 'Microsoft Jenny Online (Natural) - English (United States)') 
+                           || voices.find(voice => voice.name === 'Google US English')
+                           || voices.find(voice => voice.lang === 'en-US' && voice.voiceURI.includes('female'));
+            if (!utterance.voice) utterance.voice = voices.find(voice => voice.lang === 'en-US'); // Fallback
+            
+            utterance.onend = () => onEndCallback && onEndCallback();
+            synthesis.speak(utterance);
+        }
+
+        function levenshtein(a, b) { /* ... Giữ nguyên hàm tính toán ... */ if (a.length === 0) return b.length; if (b.length === 0) return a.length; const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator); } } return matrix[b.length][a.length]; }
+        function calculateSimilarity(str1, str2) { /* ... Giữ nguyên hàm tính toán ... */ const cleanStr1 = str1.toLowerCase().replace(/[^\w\s']/g, ''); const cleanStr2 = str2.toLowerCase().replace(/[^\w\s']/g, ''); const distance = levenshtein(cleanStr1, cleanStr2); const maxLength = Math.max(cleanStr1.length, cleanStr2.length); if (maxLength === 0) return 100; return Math.round((1 - distance / maxLength) * 100); }
+        
+        function updateDialogueDisplay() {
+            const computerRole = userIsB ? 'A' : 'B';
+            const userRole = userIsB ? 'B' : 'A';
+            const computerText = userIsB ? linesA[currentLineIndex] : linesB[currentLineIndex];
+            const userText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
+
+            computerLine.textContent = `${computerRole} (Máy): ${computerText || '...'}`;
+            userLine.textContent = userText || '...';
+            userLineTitle.textContent = `Câu của bạn (${userRole}):`;
+            
+            userLine.style.display = isUserLineVisible ? 'block' : 'none';
+            toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
+            swapRolesBtn.textContent = `🔁 Đổi Vai (Hiện tại: Bạn là ${userRole})`;
+        }
+
+        function startPractice() {
+            currentLineIndex = 0;
+            updateDialogueDisplay();
+            recordBtn.disabled = true;
+
+            if (userIsB) { // Máy bắt đầu (vai A)
+                statusArea.textContent = 'Vai A (Máy) đang nói...';
+                speak(linesA[0], () => {
+                    statusArea.textContent = 'Đến lượt bạn. Hãy nhấn nút để ghi âm.';
+                    recordBtn.disabled = false;
+                });
+            } else { // Người dùng bắt đầu (vai A)
+                statusArea.textContent = 'Đến lượt bạn (Vai A). Hãy nhấn nút để ghi âm.';
+                computerLine.textContent = `B (Máy): ...chờ bạn nói...`;
+                recordBtn.disabled = false;
+            }
+        }
+        
+        // 5. Gắn các sự kiện
+        loadBtn.addEventListener('click', () => {
+            const fullText = dialogueInput.value.trim();
+            if (fullText === '') { alert('Vui lòng nhập đoạn hội thoại!'); return; }
+            const lines = fullText.split('\n').filter(line => line.trim() !== '');
+            linesA = []; linesB = [];
+            lines.forEach(line => {
+                if (line.toLowerCase().startsWith('a:')) linesA.push(line.substring(2).trim());
+                else if (line.toLowerCase().startsWith('b:')) linesB.push(line.substring(2).trim());
+            });
+            if (linesA.length !== linesB.length) { alert('Lỗi: Số lượng câu thoại của A và B phải bằng nhau!'); return; }
+            
+            practiceArea.style.display = 'block';
+            [toggleBtn].forEach(b => b.disabled = false);
+            startPractice();
+        });
+
+        swapRolesBtn.addEventListener('click', () => {
+            userIsB = !userIsB;
+            if (linesA.length > 0) { // Only restart if dialogue is loaded
+                startPractice();
+            } else {
+                updateDialogueDisplay();
+            }
+        });
+
+        toggleBtn.addEventListener('click', () => {
+            isUserLineVisible = !isUserLineVisible;
+            userLine.style.display = isUserLineVisible ? 'block' : 'none';
+            toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
+        });
+
+        recordBtn.addEventListener('click', () => {
+            recordBtn.disabled = true;
+            statusArea.textContent = 'Đang nghe... 🎤';
+            recognition.start();
+        });
+
+        recognition.onresult = (event) => {
+            const spokenText = event.results[0][0].transcript;
+            const targetText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
+            const accuracy = calculateSimilarity(spokenText, targetText);
+
+            if (accuracy >= 80) {
+                statusArea.textContent = `Tuyệt vời! (Độ chính xác: ${accuracy}%)`;
+                statusArea.className = 'status success';
+
+                setTimeout(() => {
+                    if (userIsB) { // User là B, vừa nói xong. Máy (A) sẽ đọc câu tiếp theo
+                        currentLineIndex++;
+                        if (currentLineIndex >= linesA.length) {
+                             statusArea.textContent = '🎉 Chúc mừng! Bạn đã hoàn thành hội thoại! 🎉';
+                             return;
+                        }
+                        updateDialogueDisplay();
+                        statusArea.textContent = 'Vai A (Máy) đang nói...';
+                        speak(linesA[currentLineIndex], () => {
+                             statusArea.textContent = 'Đến lượt bạn. Hãy nhấn nút để ghi âm.';
+                             recordBtn.disabled = false;
+                        });
+                    } else { // User là A, vừa nói xong. Máy (B) sẽ đáp lại
+                        updateDialogueDisplay();
+                        statusArea.textContent = 'Vai B (Máy) đang nói...';
+                        speak(linesB[currentLineIndex], () => {
+                            currentLineIndex++;
+                            if (currentLineIndex >= linesA.length) {
+                                statusArea.textContent = '🎉 Chúc mừng! Bạn đã hoàn thành hội thoại! 🎉';
+                                return;
+                            }
+                            statusArea.textContent = 'Đến lượt bạn (Vai A). Hãy nhấn nút để ghi âm.';
+                            recordBtn.disabled = false;
+                            updateDialogueDisplay();
+                        });
+                    }
+                }, 1500);
+            } else {
+                statusArea.textContent = `Chưa đạt (${accuracy}%). Thử lại nhé! Bạn đã nói: "${spokenText}"`;
+                statusArea.className = 'status error';
+                recordBtn.disabled = false;
+            }
+        };
+
+        recognition.onerror = (event) => {
+            statusArea.textContent = `Lỗi: ${event.error}. Vui lòng thử lại.`;
+            statusArea.className = 'status error';
+            recordBtn.disabled = false;
+        };
+
+    </script>
+</body>
+</html>
