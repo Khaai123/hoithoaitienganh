@@ -26,19 +26,22 @@
         .instructions { font-size: 0.8rem; color: #606770; text-align: left; margin-bottom: 15px; background: #fdfde3; padding: 10px; border-radius: 5px; }
         /* --- CSS Mới --- */
         #review-area { text-align: left; margin-top: 20px; }
-        .review-line { padding: 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; }
+        .review-line { padding: 12px; margin: 5px 0; border-radius: 8px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; }
         .review-line.computer { background-color: #e7f3ff; }
         .review-line.user { background-color: #e8f5e9; font-weight: 500;}
         .play-recording-btn { background-color: #ffc107; color: black; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 0.9rem; }
         .play-recording-btn:hover { background-color: #e0a800; }
-        #restart-btn { background-color: #fd7e14; margin-top: 20px; }
-        #restart-btn:hover { background-color: #e46e0e; }
+        .review-controls { display: flex; gap: 10px; margin-top: 20px; flex-wrap: wrap;}
+        #restart-btn { background-color: #6f42c1; } /* Tím */
+        #restart-btn:hover { background-color: #5a379e; }
+        #play-all-btn { background-color: #198754; } /* Xanh lá */
+        #play-all-btn:hover { background-color: #157347; }
     </style>
 </head>
 <body>
 
     <div class="container">
-        <h1>Luyện Giao Tiếp Chuyên Nghiệp 🚀</h1>
+        <h1>Luyện Nói & Nghe Lại 🎧</h1>
         
         <div id="initial-setup">
             <div class="instructions">
@@ -47,13 +50,10 @@
                     <li>Dán đoạn hội thoại vào ô (dùng "A:" và "B:").</li>
                     <li>Nhấn <strong>"Tải Hội Thoại"</strong>. Bạn có thể <strong>"Đổi Vai"</strong> nếu muốn.</li>
                     <li>Lắng nghe máy đọc. Sau đó, nhấn <strong>"Bắt Đầu Ghi Âm"</strong> và nói.</li>
-                    <li>Cần gợi ý? Nhấn <strong>"Hiện/Ẩn Lời Thoại"</strong>.</li>
-                    <li>Hoàn thành xong, bạn có thể xem lại và nghe lại toàn bộ hội thoại.</li>
+                    <li>Hoàn thành xong, bạn có thể nghe lại từng câu hoặc nghe lại toàn bộ hội thoại.</li>
                 </ol>
             </div>
-
             <textarea id="dialogue-input" placeholder="Dán hội thoại của bạn ở đây...&#10;Ví dụ:&#10;A: Hello, how are you?&#10;B: I'm fine, thank you. And you?"></textarea>
-            
             <div class="controls">
                 <button id="load-btn">Tải Hội Thoại</button>
                 <button id="swap-roles-btn">🔁 Đổi Vai (Hiện tại: Bạn là B)</button>
@@ -61,356 +61,377 @@
         </div>
 
         <div id="practice-area" class="dialogue-box" style="display: none;">
-            <h2>Lời thoại của máy:</h2>
-            <div id="computer-line" class="line computer-line">...</div>
-            <div id="user-line-container">
-                 <h2 id="user-line-title">Câu của bạn:</h2>
-                 <div id="user-line" class="line user-line" style="display: none;">...</div>
             </div>
-        </div>
         
         <div id="status-area" class="status"></div>
 
         <div id="session-controls-area" style="display: none;">
-            <div class="session-controls">
-                <button id="record-btn" disabled>🎤 Bắt Đầu Ghi Âm</button>
-                <button id="toggle-line-btn" disabled>🙈 Hiện Lời Thoại</button>
-            </div>
-        </div>
+             </div>
         
         <div id="review-area" style="display: none;">
-            <h2>Xem Lại Hội Thoại</h2>
+            <h2>Tổng kết hội thoại</h2>
+            <p>Nhấn nút ▶️ để nghe lại giọng của bạn, hoặc nghe lại toàn bộ cuộc hội thoại.</p>
             <div id="review-content"></div>
-            <button id="restart-btn">Luyện tập lại</button>
+            <div class="review-controls">
+                <button id="play-all-btn">▶️ Nghe lại toàn bộ</button>
+                <button id="restart-btn">Luyện Tập Lại</button>
+            </div>
         </div>
     </div>
 
     <script>
-        // --- JavaScript Logic ---
+    // Toàn bộ mã JS từ phiên bản trước sẽ được đặt ở đây,
+    // với các chỉnh sửa và bổ sung như bên dưới.
+    // --- JavaScript Logic ---
 
-        // 1. Lấy các phần tử HTML
-        const dialogueInput = document.getElementById('dialogue-input');
-        const loadBtn = document.getElementById('load-btn');
-        const swapRolesBtn = document.getElementById('swap-roles-btn');
-        const toggleBtn = document.getElementById('toggle-line-btn');
-        const recordBtn = document.getElementById('record-btn');
-        const practiceArea = document.getElementById('practice-area');
-        const computerLine = document.getElementById('computer-line');
-        const userLine = document.getElementById('user-line');
-        const userLineTitle = document.getElementById('user-line-title');
-        const statusArea = document.getElementById('status-area');
-        // --- Phần tử mới ---
-        const initialSetup = document.getElementById('initial-setup');
-        const sessionControlsArea = document.getElementById('session-controls-area');
-        const reviewArea = document.getElementById('review-area');
-        const reviewContent = document.getElementById('review-content');
-        const restartBtn = document.getElementById('restart-btn');
+    // 1. Lấy các phần tử HTML
+    const dialogueInput = document.getElementById('dialogue-input');
+    const loadBtn = document.getElementById('load-btn');
+    const swapRolesBtn = document.getElementById('swap-roles-btn');
+    const toggleBtn = document.getElementById('toggle-line-btn');
+    const recordBtn = document.getElementById('record-btn');
+    const practiceArea = document.getElementById('practice-area');
+    const computerLine = document.querySelector('#practice-area #computer-line'); // Cần selector cụ thể hơn
+    const userLine = document.querySelector('#practice-area #user-line');
+    const userLineTitle = document.querySelector('#practice-area #user-line-title');
+    const statusArea = document.getElementById('status-area');
+    // --- Phần tử mới ---
+    const initialSetup = document.getElementById('initial-setup');
+    const sessionControlsArea = document.getElementById('session-controls-area');
+    const reviewArea = document.getElementById('review-area');
+    const reviewContent = document.getElementById('review-content');
+    const restartBtn = document.getElementById('restart-btn');
+    const playAllBtn = document.getElementById('play-all-btn');
 
 
-        // 2. Khởi tạo Web Speech API
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const synthesis = window.speechSynthesis;
-        let recognition;
-        let voices = [];
-        // --- Media Recorder ---
-        let mediaRecorder;
-        let audioChunks = [];
+    // 2. Khởi tạo Web Speech API và các biến trạng thái
+    // --- (Giữ nguyên không đổi) ---
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const synthesis = window.speechSynthesis;
+    let recognition;
+    let voices = [];
+    let mediaRecorder;
+    let audioChunks = [];
+    if (SpeechRecognition && synthesis && navigator.mediaDevices) {
+        recognition = new SpeechRecognition();
+        recognition.continuous = false;
+        recognition.lang = 'en-US';
+        recognition.interimResults = false;
+    } else {
+        statusArea.textContent = "Lỗi: Trình duyệt không hỗ trợ Web Speech API hoặc MediaStream.";
+        [loadBtn, swapRolesBtn, toggleBtn, recordBtn].forEach(b => b.disabled = true);
+    }
+    function loadVoices() { voices = synthesis.getVoices(); }
+    loadVoices();
+    if (synthesis.onvoiceschanged !== undefined) { synthesis.onvoiceschanged = loadVoices; }
 
-        if (SpeechRecognition && synthesis && navigator.mediaDevices) {
-            recognition = new SpeechRecognition();
-            recognition.continuous = false;
-            recognition.lang = 'en-US';
-            recognition.interimResults = false;
+    let linesA = [];
+    let linesB = [];
+    let currentLineIndex = 0;
+    let userIsB = true; 
+    let isUserLineVisible = false;
+    let userRecordings = [];
+
+    // --- Biến mới cho việc phát toàn bộ ---
+    let playbackQueue = [];
+    let isPlayingAll = false;
+
+    // 4. Các hàm chức năng
+    // --- (Hàm speak, levenshtein, calculateSimilarity giữ nguyên) ---
+    function speak(text, onEndCallback) {
+        if (synthesis.speaking) { synthesis.cancel(); }
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.voice = voices.find(voice => voice.name === 'Microsoft Jenny Online (Natural) - English (United States)') 
+                        || voices.find(voice => voice.name === 'Google US English')
+                        || voices.find(voice => voice.lang === 'en-US' && voice.voiceURI.includes('female'));
+        if (!utterance.voice) utterance.voice = voices.find(voice => voice.lang === 'en-US'); 
+        
+        utterance.onend = () => onEndCallback && onEndCallback();
+        synthesis.speak(utterance);
+    }
+    function levenshtein(a, b) { if (a.length === 0) return b.length; if (b.length === 0) return a.length; const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator); } } return matrix[b.length][a.length]; }
+    function calculateSimilarity(str1, str2) { const cleanStr1 = str1.toLowerCase().replace(/[^\w\s']/g, ''); const cleanStr2 = str2.toLowerCase().replace(/[^\w\s']/g, ''); const distance = levenshtein(cleanStr1, cleanStr2); const maxLength = Math.max(cleanStr1.length, cleanStr2.length); if (maxLength === 0) return 100; return Math.round((1 - distance / maxLength) * 100); }
+    
+    // --- (Hàm updateDialogueDisplay, startPractice giữ nguyên) ---
+    function updateDialogueDisplay() {
+        const computerRole = userIsB ? 'A' : 'B';
+        const userRole = userIsB ? 'B' : 'A';
+        const computerText = userIsB ? linesA[currentLineIndex] : linesB[currentLineIndex];
+        const userText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
+        computerLine.textContent = `${computerRole} (Máy): ${computerText || '...'}`;
+        userLine.textContent = userText || '...';
+        userLineTitle.textContent = `Câu của bạn (${userRole}):`;
+        userLine.style.display = isUserLineVisible ? 'block' : 'none';
+        toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
+        swapRolesBtn.textContent = `🔁 Đổi Vai (Hiện tại: Bạn là ${userRole})`;
+    }
+    function startPractice() {
+        currentLineIndex = 0;
+        userRecordings = [];
+        statusArea.textContent = '';
+        initialSetup.style.display = 'none';
+        reviewArea.style.display = 'none';
+        practiceArea.style.display = 'block';
+        sessionControlsArea.style.display = 'block';
+        toggleBtn.disabled = false;
+        updateDialogueDisplay();
+        recordBtn.disabled = true;
+        if (userIsB) {
+            statusArea.textContent = 'Vai A (Máy) đang nói...';
+            speak(linesA[0], () => { statusArea.textContent = 'Đến lượt bạn. Hãy nhấn nút để ghi âm.'; recordBtn.disabled = false; });
         } else {
-            statusArea.textContent = "Lỗi: Trình duyệt không hỗ trợ Web Speech API hoặc MediaStream.";
-            [loadBtn, swapRolesBtn, toggleBtn, recordBtn].forEach(b => b.disabled = true);
+            statusArea.textContent = 'Đến lượt bạn (Vai A). Hãy nhấn nút để ghi âm.';
+            computerLine.textContent = `B (Máy): ...chờ bạn nói...`;
+            recordBtn.disabled = false;
         }
-        
-        function loadVoices() {
-            voices = synthesis.getVoices();
-        }
-        loadVoices();
-        if (synthesis.onvoiceschanged !== undefined) {
-            synthesis.onvoiceschanged = loadVoices;
-        }
+    }
+    
+    // --- CHỈNH SỬA HÀM showReview ---
+    function showReview() {
+        practiceArea.style.display = 'none';
+        sessionControlsArea.style.display = 'none';
+        statusArea.textContent = '🎉 Chúc mừng! Bạn đã hoàn thành hội thoại! 🎉';
+        reviewArea.style.display = 'block';
+        reviewContent.innerHTML = '';
+        playAllBtn.disabled = false; // Bật nút khi hiển thị
+        isPlayingAll = false;
 
-        // 3. Biến trạng thái
-        let linesA = [];
-        let linesB = [];
-        let currentLineIndex = 0;
-        let userIsB = true; 
-        let isUserLineVisible = false;
-        // --- Mảng lưu trữ bản ghi âm ---
-        let userRecordings = [];
+        const userRole = userIsB ? 'B' : 'A';
 
-        // 4. Các hàm chức năng
-        function speak(text, onEndCallback) {
-            if (synthesis.speaking) { synthesis.cancel(); }
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.voice = voices.find(voice => voice.name === 'Microsoft Jenny Online (Natural) - English (United States)') 
-                           || voices.find(voice => voice.name === 'Google US English')
-                           || voices.find(voice => voice.lang === 'en-US' && voice.voiceURI.includes('female'));
-            if (!utterance.voice) utterance.voice = voices.find(voice => voice.lang === 'en-US'); 
-            
-            utterance.onend = () => onEndCallback && onEndCallback();
-            synthesis.speak(utterance);
-        }
-
-        function levenshtein(a, b) { if (a.length === 0) return b.length; if (b.length === 0) return a.length; const matrix = Array(b.length + 1).fill(null).map(() => Array(a.length + 1).fill(null)); for (let i = 0; i <= a.length; i += 1) { matrix[0][i] = i; } for (let j = 0; j <= b.length; j += 1) { matrix[j][0] = j; } for (let j = 1; j <= b.length; j += 1) { for (let i = 1; i <= a.length; i += 1) { const indicator = a[i - 1] === b[j - 1] ? 0 : 1; matrix[j][i] = Math.min(matrix[j][i - 1] + 1, matrix[j - 1][i] + 1, matrix[j - 1][i - 1] + indicator); } } return matrix[b.length][a.length]; }
-        function calculateSimilarity(str1, str2) { const cleanStr1 = str1.toLowerCase().replace(/[^\w\s']/g, ''); const cleanStr2 = str2.toLowerCase().replace(/[^\w\s']/g, ''); const distance = levenshtein(cleanStr1, cleanStr2); const maxLength = Math.max(cleanStr1.length, cleanStr2.length); if (maxLength === 0) return 100; return Math.round((1 - distance / maxLength) * 100); }
-        
-        function updateDialogueDisplay() {
-            const computerRole = userIsB ? 'A' : 'B';
-            const userRole = userIsB ? 'B' : 'A';
-            const computerText = userIsB ? linesA[currentLineIndex] : linesB[currentLineIndex];
-            const userText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
-
-            computerLine.textContent = `${computerRole} (Máy): ${computerText || '...'}`;
-            userLine.textContent = userText || '...';
-            userLineTitle.textContent = `Câu của bạn (${userRole}):`;
-            
-            userLine.style.display = isUserLineVisible ? 'block' : 'none';
-            toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
-            swapRolesBtn.textContent = `🔁 Đổi Vai (Hiện tại: Bạn là ${userRole})`;
-        }
-
-        function startPractice() {
-            currentLineIndex = 0;
-            userRecordings = []; // Xóa các bản ghi âm cũ
-            statusArea.textContent = '';
-            initialSetup.style.display = 'none';
-            reviewArea.style.display = 'none';
-            practiceArea.style.display = 'block';
-            sessionControlsArea.style.display = 'block';
-            [toggleBtn].forEach(b => b.disabled = false);
-
-            updateDialogueDisplay();
-            recordBtn.disabled = true;
-
-            if (userIsB) { // Máy bắt đầu (vai A)
-                statusArea.textContent = 'Vai A (Máy) đang nói...';
-                speak(linesA[0], () => {
-                    statusArea.textContent = 'Đến lượt bạn. Hãy nhấn nút để ghi âm.';
-                    recordBtn.disabled = false;
-                });
-            } else { // Người dùng bắt đầu (vai A)
-                statusArea.textContent = 'Đến lượt bạn (Vai A). Hãy nhấn nút để ghi âm.';
-                computerLine.textContent = `B (Máy): ...chờ bạn nói...`;
-                recordBtn.disabled = false;
+        for (let i = 0; i < linesA.length; i++) {
+            // Dòng của A
+            const lineA = document.createElement('div');
+            lineA.classList.add('review-line');
+            const textA = document.createElement('span');
+            lineA.appendChild(textA);
+            if (userRole === 'A') {
+                lineA.classList.add('user');
+                textA.textContent = `A (Bạn): ${linesA[i]}`;
+                const playBtn = document.createElement('button');
+                playBtn.textContent = '▶️ Nghe lại';
+                playBtn.classList.add('play-recording-btn');
+                playBtn.dataset.index = i;
+                playBtn.onclick = () => playSingleRecording(i);
+                lineA.appendChild(playBtn);
+            } else {
+                lineA.classList.add('computer');
+                textA.textContent = `A (Máy): ${linesA[i]}`;
             }
-        }
-        
-        function showReview() {
-            practiceArea.style.display = 'none';
-            sessionControlsArea.style.display = 'none';
-            statusArea.textContent = '🎉 Chúc mừng! Bạn đã hoàn thành hội thoại! 🎉';
-            reviewArea.style.display = 'block';
-            reviewContent.innerHTML = ''; // Xóa nội dung cũ
+            reviewContent.appendChild(lineA);
 
-            const userRole = userIsB ? 'B' : 'A';
-            let recordingIndex = 0;
-
-            for (let i = 0; i < linesA.length; i++) {
-                // Thêm dòng của A
-                const lineA = document.createElement('div');
-                lineA.classList.add('review-line');
-                if (userRole === 'A') {
-                    lineA.classList.add('user');
-                    const text = document.createElement('span');
-                    text.textContent = `A (Bạn): ${linesA[i]}`;
-                    const playBtn = document.createElement('button');
-                    playBtn.textContent = '▶️ Phát lại';
-                    playBtn.classList.add('play-recording-btn');
-                    playBtn.onclick = () => {
-                        const audioBlob = userRecordings[recordingIndex++];
-                        if (audioBlob) {
-                            const audioUrl = URL.createObjectURL(audioBlob);
-                            const audio = new Audio(audioUrl);
-                            audio.play();
-                        }
-                    };
-                    lineA.appendChild(text);
-                    lineA.appendChild(playBtn);
-                } else {
-                    lineA.classList.add('computer');
-                    lineA.textContent = `A (Máy): ${linesA[i]}`;
-                }
-                reviewContent.appendChild(lineA);
-
-                 // Thêm dòng của B
-                const lineB = document.createElement('div');
-                lineB.classList.add('review-line');
-                if (userRole === 'B') {
-                    lineB.classList.add('user');
-                    const text = document.createElement('span');
-                    text.textContent = `B (Bạn): ${linesB[i]}`;
-                    const playBtn = document.createElement('button');
-                    playBtn.textContent = '▶️ Phát lại';
-                    playBtn.classList.add('play-recording-btn');
-                    playBtn.onclick = (function(index) {
-                        return function() {
-                            const audioBlob = userRecordings[index];
-                            if (audioBlob) {
-                                const audioUrl = URL.createObjectURL(audioBlob);
-                                const audio = new Audio(audioUrl);
-                                audio.play();
-                            };
-                        }
-                    })(i);
-                    lineB.appendChild(text);
-                    lineB.appendChild(playBtn);
-
-                } else {
-                    lineB.classList.add('computer');
-                    lineB.textContent = `B (Máy): ${linesB[i]}`;
-                }
-                reviewContent.appendChild(lineB);
+            // Dòng của B
+            const lineB = document.createElement('div');
+            lineB.classList.add('review-line');
+            const textB = document.createElement('span');
+            lineB.appendChild(textB);
+            if (userRole === 'B') {
+                lineB.classList.add('user');
+                textB.textContent = `B (Bạn): ${linesB[i]}`;
+                const playBtn = document.createElement('button');
+                playBtn.textContent = '▶️ Nghe lại';
+                playBtn.classList.add('play-recording-btn');
+                playBtn.dataset.index = i;
+                playBtn.onclick = () => playSingleRecording(i);
+                lineB.appendChild(playBtn);
+            } else {
+                lineB.classList.add('computer');
+                textB.textContent = `B (Máy): ${linesB[i]}`;
             }
+            reviewContent.appendChild(lineB);
         }
+    }
 
+    // --- HÀM MỚI ĐỂ PHÁT TỪNG BẢN GHI ÂM ---
+    function playSingleRecording(index) {
+        if (isPlayingAll) return; // Không cho phát lẻ khi đang phát toàn bộ
+        const audioBlob = userRecordings[index];
+        if (audioBlob) {
+            const audioUrl = URL.createObjectURL(audioBlob);
+            const audio = new Audio(audioUrl);
+            audio.play();
+        }
+    }
 
-        // 5. Gắn các sự kiện
-        loadBtn.addEventListener('click', () => {
-            const fullText = dialogueInput.value.trim();
-            if (fullText === '') { alert('Vui lòng nhập đoạn hội thoại!'); return; }
-            const lines = fullText.split('\n').filter(line => line.trim() !== '');
-            linesA = []; linesB = [];
-            lines.forEach(line => {
-                if (line.toLowerCase().startsWith('a:')) linesA.push(line.substring(2).trim());
-                else if (line.toLowerCase().startsWith('b:')) linesB.push(line.substring(2).trim());
+    // --- HÀM MỚI ĐỂ PHÁT TOÀN BỘ HỘI THOẠI ---
+    function buildAndPlayQueue() {
+        playbackQueue = [];
+        const userRole = userIsB ? 'B' : 'A';
+        for (let i = 0; i < linesA.length; i++) {
+            // Queue up line A
+            playbackQueue.push({
+                type: userRole === 'A' ? 'user' : 'computer',
+                text: linesA[i],
+                recordingIndex: i
             });
-            if (linesA.length === 0 || linesB.length === 0 || linesA.length !== linesB.length) { 
-                alert('Lỗi: Số lượng câu thoại của A và B phải bằng nhau và không được rỗng!'); 
-                return; 
-            }
-            
-            startPractice();
-        });
+            // Queue up line B
+            playbackQueue.push({
+                type: userRole === 'B' ? 'user' : 'computer',
+                text: linesB[i],
+                recordingIndex: i
+            });
+        }
+        
+        // Tắt các nút điều khiển
+        isPlayingAll = true;
+        playAllBtn.disabled = true;
+        restartBtn.disabled = true;
+        document.querySelectorAll('.play-recording-btn').forEach(btn => btn.disabled = true);
+        
+        playNextInQueue(0);
+    }
+    
+    function playNextInQueue(index) {
+        if (index >= playbackQueue.length) {
+            // Hoàn thành, bật lại các nút
+            isPlayingAll = false;
+            playAllBtn.disabled = false;
+            restartBtn.disabled = false;
+            document.querySelectorAll('.play-recording-btn').forEach(btn => btn.disabled = false);
+            statusArea.textContent = 'Đã phát xong toàn bộ hội thoại.';
+            return;
+        }
 
-        swapRolesBtn.addEventListener('click', () => {
-            userIsB = !userIsB;
-            // Chỉ bắt đầu lại nếu hội thoại đã được tải
-            if (linesA.length > 0) { 
-                startPractice();
+        const currentItem = playbackQueue[index];
+        statusArea.textContent = `Đang phát: "${currentItem.text}"`;
+
+        if (currentItem.type === 'computer') {
+            speak(currentItem.text, () => {
+                playNextInQueue(index + 1);
+            });
+        } else { // type === 'user'
+            const audioBlob = userRecordings[currentItem.recordingIndex];
+            if (audioBlob) {
+                const audioUrl = URL.createObjectURL(audioBlob);
+                const audio = new Audio(audioUrl);
+                audio.play();
+                audio.onended = () => {
+                    playNextInQueue(index + 1);
+                };
             } else {
-                updateDialogueDisplay(); // Cập nhật text nút nếu chưa tải hội thoại
+                // Bỏ qua nếu không có bản ghi âm
+                playNextInQueue(index + 1);
             }
+        }
+    }
+
+
+    // 5. Gắn các sự kiện
+    // --- (Hàm loadBtn, swapRolesBtn, toggleBtn, recordBtn, recognition events giữ nguyên) ---
+    loadBtn.addEventListener('click', () => {
+        const fullText = dialogueInput.value.trim();
+        if (fullText === '') { alert('Vui lòng nhập đoạn hội thoại!'); return; }
+        const lines = fullText.split('\n').filter(line => line.trim() !== '');
+        linesA = []; linesB = [];
+        lines.forEach(line => {
+            if (line.toLowerCase().startsWith('a:')) linesA.push(line.substring(2).trim());
+            else if (line.toLowerCase().startsWith('b:')) linesB.push(line.substring(2).trim());
         });
+        if (linesA.length === 0 || linesB.length === 0 || linesA.length !== linesB.length) { 
+            alert('Lỗi: Số lượng câu thoại của A và B phải bằng nhau và không được rỗng!'); 
+            return; 
+        }
+        startPractice();
+    });
 
-        toggleBtn.addEventListener('click', () => {
-            isUserLineVisible = !isUserLineVisible;
-            userLine.style.display = isUserLineVisible ? 'block' : 'none';
-            toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
-        });
+    swapRolesBtn.addEventListener('click', () => {
+        userIsB = !userIsB;
+        if (linesA.length > 0) { startPractice(); } 
+        else { updateDialogueDisplay(); }
+    });
 
-        recordBtn.addEventListener('click', () => {
-            recordBtn.disabled = true;
-            statusArea.textContent = 'Đang nghe... 🎤';
+    toggleBtn.addEventListener('click', () => {
+        isUserLineVisible = !isUserLineVisible;
+        userLine.style.display = isUserLineVisible ? 'block' : 'none';
+        toggleBtn.textContent = isUserLineVisible ? '🙉 Ẩn Lời Thoại' : '🙈 Hiện Lời Thoại';
+    });
 
-            // Bắt đầu ghi âm bằng MediaRecorder
-            navigator.mediaDevices.getUserMedia({ audio: true })
-                .then(stream => {
-                    mediaRecorder = new MediaRecorder(stream);
-                    mediaRecorder.start();
-                    audioChunks = []; // Reset chunks
-
-                    mediaRecorder.addEventListener("dataavailable", event => {
-                        audioChunks.push(event.data);
-                    });
-
-                    mediaRecorder.addEventListener("stop", () => {
-                        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                        userRecordings[currentLineIndex] = audioBlob;
-                         // Dừng track để tắt icon ghi âm trên tab trình duyệt
-                        stream.getTracks().forEach(track => track.stop());
-                    });
-                    
-                    // Bắt đầu nhận dạng giọng nói
-                    recognition.start();
-                })
-                .catch(err => {
-                    statusArea.textContent = `Lỗi truy cập microphone: ${err.message}`;
-                    statusArea.className = 'status error';
-                    recordBtn.disabled = false;
+    recordBtn.addEventListener('click', () => {
+        recordBtn.disabled = true;
+        statusArea.textContent = 'Đang nghe... 🎤';
+        navigator.mediaDevices.getUserMedia({ audio: true })
+            .then(stream => {
+                mediaRecorder = new MediaRecorder(stream);
+                mediaRecorder.start();
+                audioChunks = [];
+                mediaRecorder.addEventListener("dataavailable", event => { audioChunks.push(event.data); });
+                mediaRecorder.addEventListener("stop", () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    userRecordings[currentLineIndex] = audioBlob;
+                    stream.getTracks().forEach(track => track.stop());
                 });
-        });
-
-        recognition.onresult = (event) => {
-            if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-            }
-
-            const spokenText = event.results[0][0].transcript;
-            const targetText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
-            const accuracy = calculateSimilarity(spokenText, targetText);
-
-            if (accuracy >= 80) {
-                statusArea.textContent = `Tuyệt vời! (Độ chính xác: ${accuracy}%)`;
-                statusArea.className = 'status success';
-
-                setTimeout(() => {
-                    if (userIsB) { // User là B, vừa nói xong. Máy (A) sẽ đọc câu tiếp theo
-                        currentLineIndex++;
-                        if (currentLineIndex >= linesA.length) {
-                             showReview();
-                             return;
-                        }
-                        updateDialogueDisplay();
-                        statusArea.textContent = 'Vai A (Máy) đang nói...';
-                        speak(linesA[currentLineIndex], () => {
-                             statusArea.textContent = 'Đến lượt bạn. Hãy nhấn nút để ghi âm.';
-                             recordBtn.disabled = false;
-                        });
-                    } else { // User là A, vừa nói xong. Máy (B) sẽ đáp lại
-                        updateDialogueDisplay();
-                        statusArea.textContent = 'Vai B (Máy) đang nói...';
-                        speak(linesB[currentLineIndex], () => {
-                            currentLineIndex++;
-                            if (currentLineIndex >= linesA.length) {
-                                showReview();
-                                return;
-                            }
-                            statusArea.textContent = 'Đến lượt bạn (Vai A). Hãy nhấn nút để ghi âm.';
-                            recordBtn.disabled = false;
-                            updateDialogueDisplay();
-                        });
-                    }
-                }, 1500);
-            } else {
-                statusArea.textContent = `Chưa đạt (${accuracy}%). Thử lại nhé! Bạn đã nói: "${spokenText}"`;
+                recognition.start();
+            })
+            .catch(err => {
+                statusArea.textContent = `Lỗi truy cập microphone: ${err.message}`;
                 statusArea.className = 'status error';
                 recordBtn.disabled = false;
-            }
-        };
+            });
+    });
 
-        recognition.onerror = (event) => {
-             if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-            }
-            statusArea.textContent = `Lỗi: ${event.error}. Vui lòng thử lại.`;
+    recognition.onresult = (event) => {
+        if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); }
+        const spokenText = event.results[0][0].transcript;
+        const targetText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
+        const accuracy = calculateSimilarity(spokenText, targetText);
+        if (accuracy >= 80) {
+            statusArea.textContent = `Tuyệt vời! (Độ chính xác: ${accuracy}%)`;
+            statusArea.className = 'status success';
+            setTimeout(() => {
+                if (userIsB) {
+                    currentLineIndex++;
+                    if (currentLineIndex >= linesA.length) { showReview(); return; }
+                    updateDialogueDisplay();
+                    statusArea.textContent = 'Vai A (Máy) đang nói...';
+                    speak(linesA[currentLineIndex], () => { statusArea.textContent = 'Đến lượt bạn.'; recordBtn.disabled = false; });
+                } else {
+                    updateDialogueDisplay();
+                    statusArea.textContent = 'Vai B (Máy) đang nói...';
+                    speak(linesB[currentLineIndex], () => {
+                        currentLineIndex++;
+                        if (currentLineIndex >= linesA.length) { showReview(); return; }
+                        statusArea.textContent = 'Đến lượt bạn (Vai A).';
+                        recordBtn.disabled = false;
+                        updateDialogueDisplay();
+                    });
+                }
+            }, 1500);
+        } else {
+            statusArea.textContent = `Chưa đạt (${accuracy}%). Thử lại nhé! Bạn đã nói: "${spokenText}"`;
             statusArea.className = 'status error';
             recordBtn.disabled = false;
-        };
-        
-        recognition.onend = () => {
-             if (mediaRecorder && mediaRecorder.state === "recording") {
-                mediaRecorder.stop();
-            }
-        };
+        }
+    };
 
-        restartBtn.addEventListener('click', () => {
-            // Reset về trạng thái ban đầu
-            reviewArea.style.display = 'none';
-            initialSetup.style.display = 'block';
-            practiceArea.style.display = 'none';
-            sessionControlsArea.style.display = 'none';
-            statusArea.textContent = '';
-            dialogueInput.value = '';
-            linesA = [];
-            linesB = [];
-            userRecordings = [];
-            currentLineIndex = 0;
-        });
+    recognition.onerror = (event) => {
+        if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); }
+        statusArea.textContent = `Lỗi: ${event.error}. Vui lòng thử lại.`;
+        statusArea.className = 'status error';
+        recordBtn.disabled = false;
+    };
+    
+    recognition.onend = () => {
+        if (mediaRecorder && mediaRecorder.state === "recording") { mediaRecorder.stop(); }
+    };
+    
+    // --- GẮN SỰ KIỆN CHO CÁC NÚT MỚI ---
+    playAllBtn.addEventListener('click', buildAndPlayQueue);
+
+    restartBtn.addEventListener('click', () => {
+        // Dừng mọi thứ đang phát
+        if (synthesis.speaking) synthesis.cancel();
+        isPlayingAll = false;
+        // Reset về trạng thái ban đầu
+        reviewArea.style.display = 'none';
+        initialSetup.style.display = 'block';
+        practiceArea.style.display = 'none';
+        sessionControlsArea.style.display = 'none';
+        statusArea.textContent = '';
+        dialogueInput.value = '';
+        linesA = [];
+        linesB = [];
+        userRecordings = [];
+        currentLineIndex = 0;
+    });
 
     </script>
 </body>
