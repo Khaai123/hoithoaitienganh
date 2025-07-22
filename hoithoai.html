@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Luyện Nói & Nghe Lại</title>
+    <title>Luyện Nói & Nghe Lại (v5 - Sửa lỗi)</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; background-color: #f0f2f5; color: #1c1e21; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; padding: 20px; box-sizing: border-box; }
         .container { width: 100%; max-width: 700px; background-color: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); padding: 25px; text-align: center; }
@@ -29,11 +29,11 @@
 <body>
 
     <div class="container">
-        <h1>Luyện Nói & Nghe Lại Bản Ghi Âm 🎧</h1>
+        <h1>Luyện Nói & Nghe Lại 🎧</h1>
         
         <div id="main-app">
             <div class="instructions">
-                <strong>Quan trọng:</strong> Trình duyệt sẽ yêu cầu quyền dùng Micro ngay lập tức. Hãy <strong>Cho phép (Allow)</strong> để bắt đầu.
+                <strong>Quan trọng:</strong> Trình duyệt sẽ yêu cầu quyền dùng Micro. Hãy <strong>Cho phép (Allow)</strong> để bắt đầu.
             </div>
 
             <textarea id="dialogue-input" placeholder="Dán hội thoại của bạn ở đây..."></textarea>
@@ -71,151 +71,115 @@
     </div>
 
     <script>
-        // --- JavaScript Logic ---
-        // 1. Lấy các phần tử HTML
-        const mainApp = document.getElementById('main-app');
-        const reviewArea = document.getElementById('review-area');
-        const reviewContent = document.getElementById('review-content');
-        const restartBtn = document.getElementById('restart-btn');
-        const playbackAudio = document.getElementById('playback-audio');
-        // ... (các phần tử khác giữ nguyên)
-        const dialogueInput = document.getElementById('dialogue-input');
-        const loadBtn = document.getElementById('load-btn');
-        const swapRolesBtn = document.getElementById('swap-roles-btn');
-        const toggleBtn = document.getElementById('toggle-line-btn');
-        const recordBtn = document.getElementById('record-btn');
-        const practiceArea = document.getElementById('practice-area');
-        const computerLine = document.getElementById('computer-line');
-        const userLine = document.getElementById('user-line');
-        const userLineTitle = document.getElementById('user-line-title');
-        const statusArea = document.getElementById('status-area');
+        // Các biến và phần tử DOM
+        const mainApp = document.getElementById('main-app'), reviewArea = document.getElementById('review-area'), reviewContent = document.getElementById('review-content'), restartBtn = document.getElementById('restart-btn'), playbackAudio = document.getElementById('playback-audio'), dialogueInput = document.getElementById('dialogue-input'), loadBtn = document.getElementById('load-btn'), swapRolesBtn = document.getElementById('swap-roles-btn'), toggleBtn = document.getElementById('toggle-line-btn'), recordBtn = document.getElementById('record-btn'), practiceArea = document.getElementById('practice-area'), computerLine = document.getElementById('computer-line'), userLine = document.getElementById('user-line'), userLineTitle = document.getElementById('user-line-title'), statusArea = document.getElementById('status-area');
         
-        // 2. Khởi tạo API
-        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-        const synthesis = window.speechSynthesis;
-        let recognition;
-        let mediaRecorder;
-        let voices = [];
-        let audioChunks = []; // MỚI: Lưu các mẩu audio của 1 lần ghi
-        let userRecordings = []; // MỚI: Lưu các bản ghi âm hoàn chỉnh
-        let stream; // MỚI: Luồng media từ micro
+        // Khởi tạo API và biến trạng thái
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition, synthesis = window.speechSynthesis;
+        let recognition, mediaRecorder, stream, voices = [], audioChunks = [], userRecordings = [], linesA = [], linesB = [], currentLineIndex = 0, userIsB = true, isUserLineVisible = false;
 
-        // 3. Hàm khởi động và xin quyền
         async function initApp() {
             try {
                 stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                
-                // Khởi tạo SpeechRecognition
                 recognition = new SpeechRecognition();
-                recognition.continuous = false;
-                recognition.lang = 'en-US';
-                recognition.interimResults = false;
-                recognition.onend = () => { if (mediaRecorder && mediaRecorder.state === 'recording') mediaRecorder.stop(); };
+                Object.assign(recognition, { continuous: false, lang: 'en-US', interimResults: false });
+                recognition.onend = () => { if (mediaRecorder?.state === 'recording') mediaRecorder.stop(); };
                 recognition.onresult = handleRecognitionResult;
                 recognition.onerror = (e) => { statusArea.textContent = `Lỗi: ${e.error}.`; recordBtn.disabled = false; };
 
-                // Khởi tạo MediaRecorder
                 mediaRecorder = new MediaRecorder(stream);
-                mediaRecorder.ondataavailable = event => audioChunks.push(event.data);
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                 mediaRecorder.onstop = () => {
                     const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
-                    // Lưu lại bản ghi âm với chỉ số của câu thoại
                     userRecordings.push({ lineIndex: currentLineIndex, role: userIsB ? 'B' : 'A', blob: audioBlob });
                     audioChunks = [];
                 };
-
-                // Tải giọng đọc
-                loadVoices();
-                if (synthesis.onvoiceschanged !== undefined) synthesis.onvoiceschanged = loadVoices;
-
+                
+                if (synthesis.onvoiceschanged !== undefined) { synthesis.onvoiceschanged = () => voices = synthesis.getVoices(); }
+                voices = synthesis.getVoices();
                 statusArea.textContent = "Sẵn sàng! Vui lòng tải hội thoại.";
             } catch (err) {
-                console.error("Lỗi khi xin quyền micro:", err);
                 statusArea.textContent = "Lỗi! Không thể truy cập micro. Vui lòng cấp quyền và tải lại trang.";
                 [loadBtn, swapRolesBtn, recordBtn, toggleBtn].forEach(b => b.disabled = true);
             }
         }
         initApp();
-
-        // 4. Các hàm chức năng (giữ nguyên và cập nhật)
-        function loadVoices() { voices = synthesis.getVoices(); }
-        function speak(text, onEndCallback) { /* Giữ nguyên */ if (synthesis.speaking) return; const utterance = new SpeechSynthesisUtterance(text); utterance.voice = voices.find(v => v.name === 'Microsoft Jenny Online (Natural) - English (United States)') || voices.find(v => v.name === 'Google US English') || voices.find(v => v.lang === 'en-US'); utterance.onend = () => onEndCallback && onEndCallback(); synthesis.speak(utterance); }
-        function levenshtein(a, b) { /* Giữ nguyên */ if(a.length==0)return b.length;if(b.length==0)return a.length;const m=Array(b.length+1).fill(null).map(()=>Array(a.length+1).fill(null));for(let i=0;i<=a.length;i+=1){m[0][i]=i}for(let j=0;j<=b.length;j+=1){m[j][0]=j}for(let j=1;j<=b.length;j+=1){for(let i=1;i<=a.length;i+=1){const id=a[i-1]===b[j-1]?0:1;m[j][i]=Math.min(m[j][i-1]+1,m[j-1][i]+1,m[j-1][i-1]+id)}}return m[b.length][a.length] }
-        function calculateSimilarity(s1, s2) { /* Giữ nguyên */ const c1=s1.toLowerCase().replace(/[^\w\s']/g,''),c2=s2.toLowerCase().replace(/[^\w\s']/g,'');const d=levenshtein(c1,c2),max=Math.max(c1.length,c2.length);return max===0?100:Math.round((1-d/max)*100) }
-        function updateDialogueDisplay() { /* Giữ nguyên */ const cR=userIsB?'A':'B',uR=userIsB?'B':'A';const cT=userIsB?linesA[currentLineIndex]:linesB[currentLineIndex];const uT=userIsB?linesB[currentLineIndex]:linesA[currentLineIndex];computerLine.textContent=`${cR} (Máy): ${cT||'...'}`;userLine.textContent=uT||'...';userLineTitle.textContent=`Câu của bạn (${uR}):`;userLine.style.display=isUserLineVisible?'block':'none';toggleBtn.textContent=isUserLineVisible?'🙉 Ẩn':'🙈 Hiện';swapRolesBtn.textContent=`🔁 Đổi Vai (Bạn là ${uR})`; }
+        
+        // Các hàm chức năng (không có thay đổi lớn)
+        function speak(text, cb) { if(synthesis.speaking) return; const u = new SpeechSynthesisUtterance(text); u.voice = voices.find(v=>v.name==='Microsoft Jenny Online (Natural) - English (United States)')||voices.find(v=>v.name==='Google US English')||voices.find(v=>v.lang==='en-US'); u.onend=()=>cb&&cb(); synthesis.speak(u); }
+        function levenshtein(a,b){if(a.length==0)return b.length;if(b.length==0)return a.length;const m=Array(b.length+1).fill(null).map(()=>Array(a.length+1).fill(null));for(let i=0;i<=a.length;i+=1){m[0][i]=i}for(let j=0;j<=b.length;j+=1){m[j][0]=j}for(let j=1;j<=b.length;j+=1){for(let i=1;i<=a.length;i+=1){const id=a[i-1]===b[j-1]?0:1;m[j][i]=Math.min(m[j][i-1]+1,m[j-1][i]+1,m[j-1][i-1]+id)}}return m[b.length][a.length]}
+        function calculateSimilarity(s1,s2){const c1=s1.toLowerCase().replace(/[^\w\s']/g,''),c2=s2.toLowerCase().replace(/[^\w\s']/g,'');const d=levenshtein(c1,c2),max=Math.max(c1.length,c2.length);return max===0?100:Math.round((1-d/max)*100)}
+        function updateDialogueDisplay(){const cR=userIsB?'A':'B',uR=userIsB?'B':'A',cT=userIsB?linesA[currentLineIndex]:linesB[currentLineIndex],uT=userIsB?linesB[currentLineIndex]:linesA[currentLineIndex];computerLine.textContent=`${cR} (Máy): ${cT||'...'}`;userLine.textContent=uT||'...';userLineTitle.textContent=`Câu của bạn (${uR}):`;userLine.style.display=isUserLineVisible?'block':'none';toggleBtn.textContent=isUserLineVisible?'🙉 Ẩn':'🙈 Hiện';swapRolesBtn.textContent=`🔁 Đổi Vai (Bạn là ${uR})`}
         
         function startPractice() {
             currentLineIndex = 0;
-            userRecordings = []; // Xóa bản ghi âm cũ
+            userRecordings = [];
             updateDialogueDisplay();
             recordBtn.disabled = true;
-            if (userIsB) { statusArea.textContent='Vai A (Máy) đang nói...'; speak(linesA[0], () => { statusArea.textContent='Đến lượt bạn.'; recordBtn.disabled=false; }); }
-            else { statusArea.textContent='Đến lượt bạn (Vai A).'; computerLine.textContent=`B (Máy): ...chờ bạn nói...`; recordBtn.disabled=false; }
+            if(userIsB){statusArea.textContent='Vai A (Máy) đang nói...';speak(linesA[0],()=>{statusArea.textContent='Đến lượt bạn.';recordBtn.disabled=false})}else{statusArea.textContent='Đến lượt bạn (Vai A).';computerLine.textContent=`B (Máy): ...chờ bạn nói...`;recordBtn.disabled=false}
         }
         
-        // 5. Gắn các sự kiện (cập nhật)
-        loadBtn.addEventListener('click', () => { /* ... */ const text=dialogueInput.value.trim();if(text===''){alert('Vui lòng nhập hội thoại!');return}const lines=text.split('\n').filter(l=>l.trim()!=='');linesA=[];linesB=[];lines.forEach(l=>{if(l.toLowerCase().startsWith('a:'))linesA.push(l.substring(2).trim());else if(l.toLowerCase().startsWith('b:'))linesB.push(l.substring(2).trim())});if(linesA.length!==linesB.length){alert('Lỗi: Số câu thoại của A và B phải bằng nhau!');return}practiceArea.style.display='block';toggleBtn.disabled=false;startPractice(); });
-        swapRolesBtn.addEventListener('click', () => { userIsB = !userIsB; if(linesA.length > 0) startPractice(); else updateDialogueDisplay(); });
-        toggleBtn.addEventListener('click', () => { isUserLineVisible = !isUserLineVisible; updateDialogueDisplay(); });
-        recordBtn.addEventListener('click', () => { recordBtn.disabled = true; statusArea.textContent='Đang nghe... 🎤'; audioChunks=[]; mediaRecorder.start(); recognition.start(); });
-        restartBtn.addEventListener('click', () => { reviewArea.style.display = 'none'; mainApp.style.display = 'block'; loadBtn.click(); });
+        // Gắn các sự kiện
+        loadBtn.addEventListener('click',()=>{const t=dialogueInput.value.trim();if(t===''){alert('Vui lòng nhập hội thoại!');return}const lns=t.split('\n').filter(l=>l.trim()!=='');linesA=[];linesB=[];lns.forEach(l=>{if(l.toLowerCase().startsWith('a:'))linesA.push(l.substring(2).trim());else if(l.toLowerCase().startsWith('b:'))linesB.push(l.substring(2).trim())});if(linesA.length!==linesB.length){alert('Lỗi: Số câu thoại của A và B phải bằng nhau!');return}practiceArea.style.display='block';toggleBtn.disabled=false;startPractice()});
+        swapRolesBtn.addEventListener('click',()=>{userIsB=!userIsB;if(linesA.length>0)startPractice();else updateDialogueDisplay()});
+        toggleBtn.addEventListener('click',()=>{isUserLineVisible=!isUserLineVisible;updateDialogueDisplay()});
+        recordBtn.addEventListener('click',()=>{recordBtn.disabled=true;statusArea.textContent='Đang nghe... 🎤';audioChunks=[];mediaRecorder.start();recognition.start()});
+        restartBtn.addEventListener('click',()=>{reviewArea.style.display='none';mainApp.style.display='block';if(linesA.length>0)startPractice()});
 
-        // 6. Xử lý kết quả (cập nhật)
-        function handleRecognitionResult(event) {
-            const spokenText = event.results[0][0].transcript;
-            const targetText = userIsB ? linesB[currentLineIndex] : linesA[currentLineIndex];
-            const accuracy = calculateSimilarity(spokenText, targetText);
-            if (accuracy >= 80) { statusArea.textContent=`Tuyệt vời! (${accuracy}%)`; statusArea.className='status success'; setTimeout(() => handleCorrectAnswer(), 1500); }
-            else { statusArea.textContent=`Chưa đạt (${accuracy}%). Thử lại! Bạn đã nói: "${spokenText}"`; statusArea.className='status error'; recordBtn.disabled=false; }
-        }
+        // Xử lý logic chính
+        function handleRecognitionResult(event){const spoken=event.results[0][0].transcript;const target=userIsB?linesB[currentLineIndex]:linesA[currentLineIndex];const accuracy=calculateSimilarity(spoken,target);if(accuracy>=80){statusArea.textContent=`Tuyệt vời! (${accuracy}%)`;statusArea.className='status success';setTimeout(handleCorrectAnswer,1000)}else{statusArea.textContent=`Chưa đạt (${accuracy}%). Thử lại! Bạn nói: "${spoken}"`;statusArea.className='status error';recordBtn.disabled=false}}
+        function handleCorrectAnswer(){if(userIsB){currentLineIndex++;if(currentLineIndex>=linesA.length){showReviewScreen();return}updateDialogueDisplay();statusArea.textContent='Vai A (Máy) đang nói...';speak(linesA[currentLineIndex],()=>{statusArea.textContent='Đến lượt bạn.';recordBtn.disabled=false})}else{updateDialogueDisplay();statusArea.textContent='Vai B (Máy) đang nói...';speak(linesB[currentLineIndex],()=>{currentLineIndex++;if(currentLineIndex>=linesA.length){showReviewScreen();return}statusArea.textContent='Đến lượt bạn (Vai A).';recordBtn.disabled=false;updateDialogueDisplay()})}}
 
-        function handleCorrectAnswer() {
-            if (userIsB) {
-                currentLineIndex++;
-                if (currentLineIndex >= linesA.length) { showReviewScreen(); return; }
-                updateDialogueDisplay(); statusArea.textContent='Vai A (Máy) đang nói...'; speak(linesA[currentLineIndex], () => { statusArea.textContent='Đến lượt bạn.'; recordBtn.disabled=false; });
-            } else {
-                updateDialogueDisplay(); statusArea.textContent='Vai B (Máy) đang nói...';
-                speak(linesB[currentLineIndex], () => {
-                    currentLineIndex++;
-                    if (currentLineIndex >= linesA.length) { showReviewScreen(); return; }
-                    statusArea.textContent='Đến lượt bạn (Vai A).'; recordBtn.disabled=false; updateDialogueDisplay();
-                });
-            }
-        }
-
-        // 7. MÀN HÌNH TỔNG KẾT (MỚI)
+        // Màn hình tổng kết (ĐÃ SỬA LỖI)
         function showReviewScreen() {
             mainApp.style.display = 'none';
             reviewArea.style.display = 'block';
-            reviewContent.innerHTML = ''; // Xóa nội dung cũ
+            reviewContent.innerHTML = '';
 
             for (let i = 0; i < linesA.length; i++) {
-                // Thêm dòng của A
+                // Hiển thị dòng của A
                 const lineA_Div = document.createElement('div');
-                lineA_Div.className = 'line computer-line';
-                lineA_Div.textContent = `A: ${linesA[i]}`;
+                const isUserA = !userIsB;
+                lineA_Div.className = 'line ' + (isUserA ? 'user-line' : 'computer-line');
+                const lineA_Text = document.createElement('span');
+                lineA_Text.textContent = `A: ${linesA[i]}`;
+                lineA_Div.appendChild(lineA_Text);
+
+                if (isUserA) {
+                    const recording = userRecordings.find(r => r.lineIndex === i && r.role === 'A');
+                    if (recording) {
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'play-btn';
+                        playBtn.textContent = '▶️ Nghe lại';
+                        playBtn.onclick = () => {
+                            playbackAudio.src = URL.createObjectURL(recording.blob);
+                            playbackAudio.play();
+                        };
+                        lineA_Div.appendChild(playBtn);
+                    }
+                }
                 reviewContent.appendChild(lineA_Div);
 
-                // Thêm dòng của B
+                // Hiển thị dòng của B
                 const lineB_Div = document.createElement('div');
-                lineB_Div.className = 'line ' + (userIsB ? 'user-line' : 'computer-line');
+                const isUserB = userIsB;
+                lineB_Div.className = 'line ' + (isUserB ? 'user-line' : 'computer-line');
                 const lineB_Text = document.createElement('span');
                 lineB_Text.textContent = `B: ${linesB[i]}`;
                 lineB_Div.appendChild(lineB_Text);
 
-                // Tìm và thêm nút Play nếu đó là câu của người dùng
-                const recording = userRecordings.find(r => r.lineIndex === i && r.role === 'B');
-                if (recording) {
-                    const playBtn = document.createElement('button');
-                    playBtn.className = 'play-btn';
-                    playBtn.textContent = '▶️ Nghe lại';
-                    playBtn.onclick = () => {
-                        const audioUrl = URL.createObjectURL(recording.blob);
-                        playbackAudio.src = audioUrl;
-                        playbackAudio.play();
-                    };
-                    lineB_Div.appendChild(playBtn);
+                if (isUserB) {
+                    const recording = userRecordings.find(r => r.lineIndex === i && r.role === 'B');
+                    if (recording) {
+                        const playBtn = document.createElement('button');
+                        playBtn.className = 'play-btn';
+                        playBtn.textContent = '▶️ Nghe lại';
+                        playBtn.onclick = () => {
+                            playbackAudio.src = URL.createObjectURL(recording.blob);
+                            playbackAudio.play();
+                        };
+                        lineB_Div.appendChild(playBtn);
+                    }
                 }
                 reviewContent.appendChild(lineB_Div);
             }
